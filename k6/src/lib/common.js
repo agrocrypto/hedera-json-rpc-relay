@@ -282,11 +282,16 @@ function TestScenarioBuilder() {
       run: function (testParameters, iteration = 0) {
         const response = that._request(testParameters, iteration);
         check(response, that._checks);
+
         // if Load test, then we need to sleep for random time between 1 and 5 seconds
         if (getTestType() === "load") {
             sleep(randomIntBetween(1, 5));
         }
-      },
+
+      }
+
+
+      ,
     };
   };
 
