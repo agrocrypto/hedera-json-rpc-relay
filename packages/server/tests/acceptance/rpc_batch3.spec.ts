@@ -412,6 +412,17 @@ describe('@api-batch-3 RPC Server Acceptance Tests', function () {
                                 Assertions.jsonRpcError(e, predefined.CONTRACT_REVERT());
                             }
                         });
+
+                        it("012 should work for wrong 'from' field", async function () {
+                            const callData = {
+                                from: "0x0000000000000000000000000000000000000000",
+                                to: callerAddress,
+                                data: '0x0ec1551d'
+                            };
+
+                            const res = await relay.call(RelayCall.ETH_ENDPOINTS.ETH_CALL, [callData, 'latest'], requestId);
+                            expect(res).to.eq('0x0000000000000000000000000000000000000000000000000000000000000004');
+                        });
                     }
                 });
             }

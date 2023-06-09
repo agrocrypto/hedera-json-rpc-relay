@@ -3375,26 +3375,6 @@ describe('Eth calls using MirrorNode', async function () {
       }
     });
 
-    it('eth_call with non account from field', async function () {
-
-      restMock.onGet(`accounts/${contractAddress1}`).reply(404);
-      restMock.onGet(`contracts/${contractAddress1}`).reply(200);
-
-      let  error;
-      try {
-        await ethImpl.call({
-          "from": contractAddress1,
-          "to": contractAddress2,
-          "data": contractCallData,
-          "gas": maxGasLimitHex
-        }, 'latest');
-      }  catch (e) {
-        error = e;
-      }
-      expect(error).to.be.not.null;
-      expect(error.message).to.equal(`Non Existing Account Address: ${contractAddress1}. Expected an Account Address.`);
-    });
-
     it('should execute "eth_call" against mirror node with a false ETH_CALL_DEFAULT_TO_CONSENSUS_NODE', async function () {
       const initialEthCallConesneusFF = process.env.ETH_CALL_DEFAULT_TO_CONSENSUS_NODE;
 
@@ -3876,9 +3856,22 @@ describe('Eth calls using MirrorNode', async function () {
       expect(result).to.equal("0x00");
     });
 
-    it('eth_call with no from address', async function () {
+    it('eth_call with no "from" address', async function () {
       const callData = {
         ...defaultCallData,
+        "to": contractAddress2,
+        "data": contractCallData,
+        "gas": maxGasLimit
+      };
+      web3Mock.onPost('contracts/call', {...callData, estimate: false}).reply(200, {result: `0x00`});
+      const result = await ethImpl.call(callData, 'latest');
+      expect(result).to.equal("0x00");
+    });
+
+    it('eth_call with wrong "from" address', async function () {
+      const callData = {
+        ...defaultCallData,
+        "from": "0x0000000000000000000000000000000000000000",
         "to": contractAddress2,
         "data": contractCallData,
         "gas": maxGasLimit
@@ -3935,7 +3928,6 @@ describe('Eth calls using MirrorNode', async function () {
 
       const timeoutAddress = "0x00000000000000000000000000000000000004e2";
       const timeoutContract  =  "0x00000000000000000000000000000000000004e3";
-      restMock.onGet(`contracts/${timeoutAddress}`).reply(504);
       restMock.onGet(`accounts/${timeoutContract}`).reply(504);
 
       const callData = {
@@ -3954,7 +3946,7 @@ describe('Eth calls using MirrorNode', async function () {
         error = e;
       }
       expect(error).to.be.not.null;
-      expect(error.message).to.equal("Non Existing Account Address: 0x00000000000000000000000000000000000004e2. Expected an Account Address.");
+      expect(error.message).to.equal("Non Existing Contract Address: 0x00000000000000000000000000000000000004e3. Expected a Contract or Token Address.");
     });
 
     it('eth_call with all fields, but mirror node throws NOT_SUPPORTED', async function () {

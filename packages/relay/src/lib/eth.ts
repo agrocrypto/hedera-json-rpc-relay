@@ -1281,14 +1281,6 @@ export class EthImpl implements Eth {
       throw predefined.INVALID_CONTRACT_ADDRESS(call.to);
     }
 
-    // If "From" is distinct from blank, we check is a valid account
-    if (call.from) {
-      const fromEntityType = await this.mirrorNodeClient.resolveEntityType(call.from, [constants.TYPE_ACCOUNT], requestId);
-      if (fromEntityType?.type !== constants.TYPE_ACCOUNT) {
-        throw predefined.NON_EXISTING_ACCOUNT(call.from);
-      }
-    }
-
     // verify gas is withing the allowed range
     if (call.gas && call.gas > this.contractCallGasLimit) {
       throw predefined.GAS_LIMIT_TOO_HIGH(call.gas, constants.BLOCK_GAS_LIMIT);
