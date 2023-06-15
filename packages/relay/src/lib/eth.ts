@@ -493,7 +493,15 @@ export class EthImpl implements Eth {
           const accountCacheKey = `${constants.CACHE_KEY.ACCOUNT}_${transaction.to}`;
           let toAccount: object | null = this.cache.get(accountCacheKey);
           if (!toAccount) {
-            toAccount = await this.mirrorNodeClient.getAccount(transaction.to, requestId);
+            try {
+              toAccount = await this.mirrorNodeClient.getAccount(transaction.to, requestId);
+            } catch (error: any) {
+              if(error instanceof MirrorNodeClientError && error.statusCode == 404) {
+                toAccount = null;
+              } else {
+                throw error;
+              }
+            }
           }
 
           // when account exists return default base gas, otherwise return the minimum amount of gas to create an account entity
@@ -758,7 +766,16 @@ export class EthImpl implements Eth {
     let blockNumber = null;
     let balanceFound = false;
     let weibars: BigInt = BigInt(0);
-    const mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestId);
+    let mirrorAccount;
+    try {
+      mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestId);
+    } catch (error) {
+      if(error instanceof MirrorNodeClientError && error.statusCode === 404) {
+        mirrorAccount = null;
+      } else {
+        throw error;
+      }
+    }
 
     try {
       if (!EthImpl.blockTagIsLatestOrPending(blockNumberOrTag)) {
