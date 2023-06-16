@@ -493,15 +493,7 @@ export class EthImpl implements Eth {
           const accountCacheKey = `${constants.CACHE_KEY.ACCOUNT}_${transaction.to}`;
           let toAccount: object | null = this.cache.get(accountCacheKey);
           if (!toAccount) {
-            try {
-              toAccount = await this.mirrorNodeClient.getAccount(transaction.to, requestId);
-            } catch (error: any) {
-              if(error instanceof MirrorNodeClientError && error.statusCode == 404) {
-                toAccount = null;
-              } else {
-                throw error;
-              }
-            }
+            toAccount = await this.getAccountOrNull(transaction.to, requestId);
           }
 
           // when account exists return default base gas, otherwise return the minimum amount of gas to create an account entity
@@ -525,6 +517,31 @@ export class EthImpl implements Eth {
 
     return gas;
   }
+
+  /**
+   * Gets the account data using the mirror node and handles the potential 404 error and returns null instead.
+   * */
+    async getAccountOrNull(address: string, requestId?: string) {
+      let account;
+      try {
+        account = await this.mirrorNodeClient.getAccount(address, requestId);
+      } catch (error: any) {
+        if(error instanceof MirrorNodeClientError) {
+          if(error.statusCode == 404){
+            return null;
+
+          } else if(error.statusCode == 400){
+            this.logger.debug(`${formatRequestIdMessage(requestId)} Got Invalid Parameter when trying to fetch account from mirror node: ${JSON.stringify(error)}`);
+            throw predefined.INVALID_PARAMETER(address, `Invalid 'address' field in transaction param. Address must be a valid 20 bytes hex string`);
+          }
+        } else {
+          this.logger.error(`${formatRequestIdMessage(requestId)} Unexpected error raised while fetching account from mirror-node: ${JSON.stringify(error)}`);
+          throw error;
+        }
+      }
+
+      return account;
+    }
 
   /**
    * Gets the current gas price of the network.
@@ -1090,7 +1107,7 @@ export class EthImpl implements Eth {
       return EthImpl.zeroHex;
     } else if (address && !blockNumOrTag) {
       // get latest ethereumNonce
-      const mirrorAccount = await this.mirrorNodeClient.getAccount(address, requestId);
+      const mirrorAccount = await this.getAccountOrNull(address, requestId);
       if (mirrorAccount?.ethereum_nonce) {
         return EthImpl.numberTo0x(mirrorAccount.ethereum_nonce);
       }
@@ -1413,7 +1430,7 @@ export class EthImpl implements Eth {
       const accountCacheKey = `${constants.CACHE_KEY.ACCOUNT}_${fromAddress}`;
       let accountResult: any | null = this.cache.get(accountCacheKey);
       if (!accountResult) {
-        accountResult = await this.mirrorNodeClient.getAccount(fromAddress, requestId);
+        accountResult = await this.getAccountOrNull(fromAddress, requestId);
         if (accountResult) {
           this.logger.trace(`${requestIdPrefix} caching ${accountCacheKey}:${JSON.stringify(accountResult)} for ${constants.CACHE_TTL.ONE_HOUR} ms`);
           this.cache.set(accountCacheKey, accountResult);
