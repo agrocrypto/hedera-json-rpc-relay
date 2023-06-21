@@ -495,7 +495,7 @@ export class EthImpl implements Eth {
           const accountCacheKey = `${constants.CACHE_KEY.ACCOUNT}_${transaction.to}`;
           let toAccount: object | null = this.cache.get(accountCacheKey);
           if (!toAccount) {
-            toAccount = await this.mirrorNodeClient.getAccount(transaction.to, requestId);
+            toAccount = await this.getAccountOrNull(transaction.to, false, requestId);
           }
 
           // when account exists return default base gas, otherwise return the minimum amount of gas to create an account entity
@@ -518,6 +518,35 @@ export class EthImpl implements Eth {
     this.logger.error(`${requestIdPrefix} Returning predefined gas: ${gas}`);
 
     return gas;
+  }
+
+  /**
+   * Gets the account data using the mirror node and handles the potential 404 error and returns null instead.
+   * */
+  async getAccountOrNull(address: string, usePageLimit: boolean, requestId?: string) {
+    let account;
+    try {
+      if(usePageLimit){
+        account = await this.mirrorNodeClient.getAccountPageLimit(address, requestId);
+      } else {
+        account = await this.mirrorNodeClient.getAccount(address, requestId);
+      }
+    } catch (error: any) {
+      if(error instanceof MirrorNodeClientError) {
+        if(error.statusCode == 404){
+          return null;
+
+        } else if(error.statusCode == 400){
+          this.logger.debug(`${formatRequestIdMessage(requestId)} Got Invalid Parameter when trying to fetch account from mirror node: ${JSON.stringify(error)}`);
+          throw predefined.INVALID_PARAMETER(address, `Invalid 'address' field in transaction param. Address must be a valid 20 bytes hex string`);
+        }
+      } else {
+        this.logger.error(`${formatRequestIdMessage(requestId)} Unexpected error raised while fetching account from mirror-node: ${JSON.stringify(error)}`);
+        throw error;
+      }
+    }
+
+    return account;
   }
 
   /**
@@ -760,7 +789,7 @@ export class EthImpl implements Eth {
     let blockNumber = null;
     let balanceFound = false;
     let weibars: BigInt = BigInt(0);
-    const mirrorAccount = await this.mirrorNodeClient.getAccountPageLimit(account, requestId);
+    const mirrorAccount = await this.getAccountOrNull(account, true, requestId);
 
     try {
       if (!EthImpl.blockTagIsLatestOrPending(blockNumberOrTag)) {
@@ -1398,7 +1427,7 @@ export class EthImpl implements Eth {
       const accountCacheKey = `${constants.CACHE_KEY.ACCOUNT}_${fromAddress}`;
       let accountResult: any | null = this.cache.get(accountCacheKey);
       if (!accountResult) {
-        accountResult = await this.mirrorNodeClient.getAccount(fromAddress, requestId);
+        accountResult = await this.getAccountOrNull(fromAddress, false, requestId);
         if (accountResult) {
           this.logger.trace(`${requestIdPrefix} caching ${accountCacheKey}:${JSON.stringify(accountResult)} for ${constants.CACHE_TTL.ONE_HOUR} ms`);
           this.cache.set(accountCacheKey, accountResult);
@@ -1889,7 +1918,7 @@ export class EthImpl implements Eth {
     } 
     
     // get latest ethereumNonce from mirror node account API
-    const mirrorAccount = await this.mirrorNodeClient.getAccount(address, requestId);
+    const mirrorAccount = await this.getAccountOrNull(address, false, requestId);
     if (mirrorAccount?.ethereum_nonce) {
       return EthImpl.numberTo0x(mirrorAccount.ethereum_nonce);
     }
