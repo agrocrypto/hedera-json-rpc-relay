@@ -1232,7 +1232,15 @@ export class EthImpl implements Eth {
     const requestIdPrefix = formatRequestIdMessage(requestId);
     // Execute the call and get the response
     this.logger.debug(`${requestIdPrefix} Making eth_call on contract ${call.to} with gas ${gas} and call data "${call.data}" from "${call.from}" using consensus-node.`, call.to, gas, call.data, call.from);
-    
+
+    // If "From" is distinct from blank, we check is a valid account
+    if (call.from) {
+      const fromEntityType = await this.mirrorNodeClient.resolveEntityType(call.from, [constants.TYPE_ACCOUNT], requestId);
+      if (fromEntityType?.type !== constants.TYPE_ACCOUNT) {
+        throw predefined.NON_EXISTING_ACCOUNT(call.from);
+      }
+    }
+
     try {
       let data = call.data;
       if (data) {
