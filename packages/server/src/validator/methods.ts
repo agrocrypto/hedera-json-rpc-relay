@@ -153,7 +153,7 @@ export const METHODS = {
   "eth_uninstallFilter": {
     0: {
       required: true,
-      type: 'string'
+      type: 'hex'
     }
   },
 };
